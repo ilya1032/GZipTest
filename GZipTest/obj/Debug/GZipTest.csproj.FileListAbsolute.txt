@@ -1,0 +1,6 @@
+D:\Labs\CSharp\GZipTest\GZipTest\bin\Debug\GZipTest.exe.config
+D:\Labs\CSharp\GZipTest\GZipTest\bin\Debug\GZipTest.exe
+D:\Labs\CSharp\GZipTest\GZipTest\bin\Debug\GZipTest.pdb
+D:\Labs\CSharp\GZipTest\GZipTest\obj\Debug\GZipTest.csprojResolveAssemblyReference.cache
+D:\Labs\CSharp\GZipTest\GZipTest\obj\Debug\GZipTest.exe
+D:\Labs\CSharp\GZipTest\GZipTest\obj\Debug\GZipTest.pdb
