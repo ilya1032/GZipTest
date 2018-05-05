@@ -4,3 +4,6 @@ D:\Labs\CSharp\GZipTest\GZipTest\bin\Debug\GZipTest.pdb
 D:\Labs\CSharp\GZipTest\GZipTest\obj\Debug\GZipTest.csprojResolveAssemblyReference.cache
 D:\Labs\CSharp\GZipTest\GZipTest\obj\Debug\GZipTest.exe
 D:\Labs\CSharp\GZipTest\GZipTest\obj\Debug\GZipTest.pdb
+D:\Ucheba\4 семестр\MyRepos\GZipTest\GZipTest\GZipTest\bin\Debug\GZipTest.exe.config
+D:\Ucheba\4 семестр\MyRepos\GZipTest\GZipTest\GZipTest\obj\Debug\GZipTest.exe
+D:\Ucheba\4 семестр\MyRepos\GZipTest\GZipTest\GZipTest\obj\Debug\GZipTest.pdb
