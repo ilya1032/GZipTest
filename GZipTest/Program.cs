@@ -88,7 +88,7 @@ namespace GZipTest
         public delegate void Compression();
         public delegate void Decompression();
         public delegate void WritingToFile();
-        public static event WritingToFile OnNewDatatoWrite;
+        public static event WritingToFile OnNewDataToWrite;
         public static event Decompression OnNewDataToDecompress;
         public static event Compression OnNewDataToCompress;
         static Queue<byte[]> dataWaitingToCompress;
@@ -97,10 +97,8 @@ namespace GZipTest
         public class ThreadPool
         {
             static Queue<Thread> currentWorkingTreads;
-//          static Queue<WaitCallback> callbacksWaitingToProceed;
             static Thread outputThread;
 
-//          static int minThreadsNumber = 4;
             static int maxThreadsNumbers = Environment.SystemPageSize / (1024*1024);    //потому что размер стека одного потока равен 1 мб
             public static int _dataPortionSize = Environment.SystemPageSize / maxThreadsNumbers;//SystemPageSize вовращает размер доступной памяти для данного процесса
 
@@ -108,7 +106,7 @@ namespace GZipTest
             {
                 OnNewDataToCompress += InitCompression;
                 OnNewDataToDecompress += InitDecompression;
-                OnNewDatatoWrite += InitWriting;
+                OnNewDataToWrite += InitWriting;
             }
 
             public static bool QueueUserWorkItem(byte[] dataToCompress)
@@ -126,7 +124,7 @@ namespace GZipTest
 
             public static void InitDecompression()
             {
-                Thread t = new Thread(new ThreadStart(CompressBlock));
+                Thread t = new Thread(new ThreadStart(DecompressBlock));
                 currentWorkingTreads.Enqueue(t);
             }
             //дописать
@@ -136,6 +134,12 @@ namespace GZipTest
                 {
                     outputThread = new Thread(new ThreadStart(WriteBlock));
                     currentWorkingTreads.Enqueue(outputThread);
+                }
+                else
+                {
+                    while (outputThread.ThreadState != ThreadState.Stopped)
+                        Thread.Sleep(300);
+                    outputThread.Start();
                 }
             }
 
@@ -162,6 +166,7 @@ namespace GZipTest
                     lock (lockObject)
                     {
                         dataWaitingToWrite.Enqueue(output.ToArray());
+                        OnNewDataToWrite();
                     }
                 }
         }
@@ -198,5 +203,4 @@ namespace GZipTest
         }
     }
     
-
 }
