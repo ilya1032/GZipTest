@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -10,108 +11,61 @@ namespace GZipTest
 {
     static public class GZipTest
     {
+        static string fileName;
+        static int dataPortionToCompressIndex = 0;
+        static int dataPortionToWriteIndex = 0;
+        static int prevDataPortionToWriteIndex = -1;
+        static int prevDataPortionToCompressIndex = -1;
+        static Semaphore sem;
 
-        static int dataPortionSize = 10000000;
-/*
-        static int threadNumber = Environment.ProcessorCount;
-
-        //static Thread[] tPool = new Thread[threadNumber];
-
-        static byte[][] dataArray = new byte[threadNumber][];
-        static byte[][] compressedDataArray = new byte[threadNumber][];
-
-        static int dataArraySize = dataPortionSize * threadNumber;
-*/
-        /*
-                static public void Compress(string inFileName)
-                {
-
-                    FileStream inFile = new FileStream(inFileName, FileMode.Open);
-                    FileStream outFile = new FileStream(inFileName + ".gz", FileMode.Append);
-                    int _dataPortionSize;
-                    Thread[] tPool;
-                    Console.Write("Compressing...");
-                    while (inFile.Position < inFile.Length)
-                    {
-                        Console.Write(".");
-                        tPool = new Thread[threadNumber];
-                        for (int portionCount = 0; (portionCount < threadNumber) && (inFile.Position < inFile.Length); portionCount++)
-                        {
-                            if (inFile.Length - inFile.Position <= dataPortionSize)
-                            {
-                                _dataPortionSize = (int)(inFile.Length - inFile.Position);
-                            }
-                            else
-                            {
-                                _dataPortionSize = dataPortionSize;
-                            }
-                            dataArray[portionCount] = new byte[_dataPortionSize];
-                            inFile.Read(dataArray[portionCount], 0, _dataPortionSize);
-
-                            tPool[portionCount] = new Thread(CompressBlock);
-                            tPool[portionCount].Start(portionCount);
-                        }
-
-                        for (int portionCount = 0; (portionCount < threadNumber) && (tPool[portionCount] != null);)
-                        {
-                            if (tPool[portionCount].ThreadState == ThreadState.Stopped)
-                            {
-                                outFile.Write(compressedDataArray[portionCount], 0, compressedDataArray[portionCount].Length);
-                                portionCount++;
-                            }
-                        }
-                    }
-
-                    outFile.Close();
-                    inFile.Close();
-                }
-
-                static public void CompressBlock(object i)
-                {
-                    using (MemoryStream output = new MemoryStream(dataArray[(int)i].Length))
-                    {
-                        using (GZipStream cs = new GZipStream(output, CompressionMode.Compress))
-                        {
-                            cs.Write(dataArray[(int)i], 0, dataArray[(int)i].Length);
-                        }
-                        compressedDataArray[(int)i] = output.ToArray();
-                    }
-                }*/
         static void Main(string[] args)
         {
+            sem = new Semaphore(1, 1);
 
-            string fileName = "D:\\original.jpg";
+            fileName = "D:\\TestVideo.mkv";
+            try
+            {
+            MyThreadPool pool = new MyThreadPool();
+            }
+            catch (TypeInitializationException ex) 
+            {
+                Console.WriteLine(ex.InnerException);
+            }
+            Compress(fileName);
 
-//          Compress(fileName);
+            return;
         }
 
         public delegate void Compression();
         public delegate void Decompression();
         public delegate void WritingToFile();
-        public static event WritingToFile OnNewDataToWrite;
-        public static event Decompression OnNewDataToDecompress;
         public static event Compression OnNewDataToCompress;
-        static Queue<byte[]> dataWaitingToCompress;
-        static Queue<byte[]> dataWaitingToWrite;
+        static SortedList<int, byte[]> dataWaitingToCompress;
+        static SortedList<int, byte[]> dataWaitingToWrite;
 
-        public class ThreadPool
+        public class MyThreadPool
         {
+            public static FileStream outFile;
             static Queue<Thread> currentWorkingTreads;
-            static Thread outputThread;
+            public static Thread outputThread;
 
-            static int maxThreadsNumbers = Environment.SystemPageSize / (1024*1024);    //потому что размер стека одного потока равен 1 мб
-            public static int _dataPortionSize = Environment.SystemPageSize / maxThreadsNumbers;//SystemPageSize вовращает размер доступной памяти для данного процесса
+            static int maxThreadsNumbers = (int)(Environment.WorkingSet / 1024*1024);    //потому что размер стека одного потока равен 1 мб
+            public static int _dataPortionSize = 1042 * 1024;                           //(int)(Environment.WorkingSet / maxThreadsNumbers);//SystemPageSize вовращает размер доступной памяти для данного процесса
 
-            public ThreadPool()
+            public MyThreadPool()
             {
                 OnNewDataToCompress += InitCompression;
-                OnNewDataToDecompress += InitDecompression;
-                OnNewDataToWrite += InitWriting;
+                outFile = new FileStream(fileName + ".gz", FileMode.Append);
+                dataWaitingToCompress = new SortedList<int, byte[]>();
+                dataWaitingToWrite = new SortedList<int, byte[]>();
+                currentWorkingTreads = new Queue<Thread>();
+                outputThread = new Thread(new ThreadStart(WriteBlock));
+                outputThread.Start();
             }
 
             public static bool QueueUserWorkItem(byte[] dataToCompress)
             {
-                dataWaitingToCompress.Enqueue(dataToCompress);
+                dataWaitingToCompress.Add(dataPortionToCompressIndex++,dataToCompress);
                 OnNewDataToCompress();
                 return true;
             }
@@ -119,28 +73,8 @@ namespace GZipTest
             public static void InitCompression()
             {
                 Thread t = new Thread(new ThreadStart(CompressBlock));
+                t.Start();
                 currentWorkingTreads.Enqueue(t);
-            }
-
-            public static void InitDecompression()
-            {
-                Thread t = new Thread(new ThreadStart(DecompressBlock));
-                currentWorkingTreads.Enqueue(t);
-            }
-            //дописать
-            public static void InitWriting()
-            {
-                if (outputThread == null)
-                {
-                    outputThread = new Thread(new ThreadStart(WriteBlock));
-                    currentWorkingTreads.Enqueue(outputThread);
-                }
-                else
-                {
-                    while (outputThread.ThreadState != ThreadState.Stopped)
-                        Thread.Sleep(300);
-                    outputThread.Start();
-                }
             }
 
             public static int AvailableThreads()
@@ -151,22 +85,20 @@ namespace GZipTest
 
         public static void CompressBlock()
         {
-            Object lockObject = new Object();
             byte[] dataPortion;
-            lock (lockObject)
-            {
-                dataPortion = dataWaitingToCompress.Dequeue();
-            }
+            sem.WaitOne();
+            prevDataPortionToCompressIndex++;
+            dataPortion = dataWaitingToCompress[prevDataPortionToCompressIndex];
+            dataWaitingToCompress.Remove(prevDataPortionToCompressIndex);
+            sem.Release();
                 using (MemoryStream output = new MemoryStream(dataPortion.Length))
                 {
                     using (GZipStream cs = new GZipStream(output, CompressionMode.Compress))
                     {
                         cs.Write(dataPortion, 0, dataPortion.Length);
-                    }
-                    lock (lockObject)
-                    {
-                        dataWaitingToWrite.Enqueue(output.ToArray());
-                        OnNewDataToWrite();
+                        sem.WaitOne();
+                        dataWaitingToWrite.Add(dataPortionToWriteIndex++, output.ToArray());
+                        sem.Release();
                     }
                 }
         }
@@ -174,32 +106,52 @@ namespace GZipTest
         public static void Compress(string inFileName)
         {
             FileStream inFile = new FileStream(inFileName, FileMode.Open);
-            FileStream outFile = new FileStream(inFileName + ".gz", FileMode.Append);
             int _dataPortionSize;
             
-            while (inFile.Position <= inFile.Length)
+            while (inFile.Position < inFile.Length)
             {
-                if (inFile.Length - inFile.Position <= ThreadPool._dataPortionSize)
+                if (inFile.Length - inFile.Position < MyThreadPool._dataPortionSize)
                 {
                     _dataPortionSize = (int)(inFile.Length - inFile.Position);
                 }
                 else
                 {
-                    _dataPortionSize = ThreadPool._dataPortionSize;
+                    _dataPortionSize = MyThreadPool._dataPortionSize;
                 }
 
                 byte[] dataPortion = new byte[_dataPortionSize];
                 inFile.Read(dataPortion, 0, _dataPortionSize);
 
-
-                ThreadPool.QueueUserWorkItem(dataPortion);
+                while (dataWaitingToWrite.Count + dataWaitingToCompress.Count >= 600)
+                {
+                    Thread.Sleep(300);
+                }
+                MyThreadPool.QueueUserWorkItem(dataPortion);    
             }
+
+            inFile.Close();
         }
 
         public static void WriteBlock()
         {
-            byte[] dataToWrite = dataWaitingToWrite.Dequeue();
-            outFile.Write(dataToWrite, 0, dataToWrite.Length);
+            byte[] dataToWrite;
+            int count = 0;
+            while (count != 20)
+            {
+                while (!dataWaitingToWrite.ContainsKey(prevDataPortionToWriteIndex + 1) && (count != 20))
+                {
+                    Thread.Sleep(300);
+                    count++;
+                }
+                if (count != 20)
+                {
+                    dataToWrite = dataWaitingToWrite[prevDataPortionToWriteIndex + 1];
+                    prevDataPortionToWriteIndex++;
+                    dataWaitingToWrite.Remove(prevDataPortionToWriteIndex);
+                    MyThreadPool.outFile.Write(dataToWrite, 0, dataToWrite.Length);
+                    count = 0;
+                }
+            }
         }
     }
     
