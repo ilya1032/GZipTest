@@ -43,8 +43,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="MyThreadPool.cs" />
+    <Compile Include="GZipArchiver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ThreadSafeQueue.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
